@@ -28,21 +28,12 @@ jobs:
 
       - name: Prepare Android Platform
         run: |
-          # Simpan google-services.json resmi
           cp android/app/google-services.json /tmp/google-services.json 2>/dev/null || true
-          
-          # Bentuk ulang struktur Android platform resmi
           rm -rf android/
           flutter create . --platforms=android --org com.bnpb
-          
-          # Hapus file contoh bawaan
           rm -f test/widget_test.dart
-          
-          # Kembalikan google-services.json
           mkdir -p android/app
           cp /tmp/google-services.json android/app/google-services.json
-          
-          # Konfigurasi plugin Google Services, minSdk 21, dan multiDex
           python3 scripts/configure_android.py
 
       - name: Get Dependencies
@@ -52,7 +43,7 @@ jobs:
         run: flutter test test/haversine_test.dart test/attendance_model_test.dart
 
       - name: Build Android Release APK
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons --verbose
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
