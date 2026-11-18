@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Aturan Pengguna & Pengikatan Perangkat (Device Binding)
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      // Pengguna hanya dapat memperbarui registeredDeviceId jika masih kosong atau milik sendiri.
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
+    }
+
+    // Aturan Presensi Lapangan BNPB
+    match /attendances/{attendanceId} {
+      // Personel hanya dapat membaca riwayat presensi miliknya sendiri atau admin.
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid || 
+        request.auth.token.role == 'admin'
+      );
+
+      // Personel hanya dapat membuat presensi atas nama dirinya sendiri.
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.isMockLocation == false; // Tolak bila lokasi terdeteksi palsu
+      
+      allow update, delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+  }
+}

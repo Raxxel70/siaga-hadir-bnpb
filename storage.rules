@@ -1,0 +1,12 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /attendances/{userId}/{fileName} {
+      // Hanya pemilik berkas swafoto atau admin yang dapat membaca dan mengunggah.
+      allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.role == 'admin');
+      allow write: if request.auth != null && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024 // Maksimum ukuran foto 5MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

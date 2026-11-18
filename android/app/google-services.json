@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "201077736919",
+    "project_id": "siaga-hadir-bnpb",
+    "storage_bucket": "siaga-hadir-bnpb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:201077736919:android:08cfd5395c58b50f797792",
+        "android_client_info": {
+          "package_name": "com.bnpb.siaga_hadir"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUclORBLd-R_oudFJrCXcKyZt5tdxNMSw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

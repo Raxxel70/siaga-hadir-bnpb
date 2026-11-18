@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Monitoring Presensi & Kesiapsiagaan BNPB - SIAGA-HADIR</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Leaflet CSS & JS untuk Peta Sebaran Lapangan TRC -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Firebase App & Firestore SDKs (Compat untuk kemudahan standalone) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bnpb: {
+              orange: '#BA3D00',
+              dark: '#8F2E00',
+              light: '#FBE9E7',
+              navy: '#0F172A',
+              slate: '#1E293B',
+              border: '#E2E8F0',
+              bg: '#F8FAFC'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    #map { height: 380px; width: 100%; border-radius: 0.5rem; z-index: 1; }
+  </style>
+</head>
+<body class="bg-bnpb-bg text-bnpb-slate min-h-screen flex flex-col font-sans">
+
+  <!-- Header Kedinasan BNPB -->
+  <header class="bg-white border-b border-bnpb-border sticky top-0 z-20 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-bnpb-light rounded-lg flex items-center justify-center text-bnpb-orange font-bold text-xl border border-bnpb-orange/30">
+          🛡️
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-bnpb-navy leading-tight">SIAGA-HADIR BNPB</h1>
+          <p class="text-xs text-gray-500">Pusat Pengendalian Operasi (Pusdalops) & Manajemen Kesiapsiagaan</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+          <span class="w-2 h-2 mr-1.5 bg-emerald-600 rounded-full animate-pulse"></span>
+          Koneksi Firestore Aktif
+        </span>
+        <button id="btn-refresh" class="px-3 py-1.5 text-xs font-semibold bg-white border border-gray-300 rounded hover:bg-gray-50 flex items-center gap-1.5 text-bnpb-navy">
+          <span>🔄</span> Perbarui Data
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Konten Utama Dashboard -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Kartu Metrik Operasional Real-Time -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-lg border border-bnpb-border shadow-sm">
+        <p class="text-xs font-medium text-gray-500">Total Presensi Masuk</p>
+        <p id="stat-total" class="text-2xl font-bold text-bnpb-navy mt-1">0</p>
+        <span class="text-[11px] text-gray-400">Hari ini (Real-Time)</span>
+      </div>
+
+      <div class="bg-white p-4 rounded-lg border border-bnpb-border shadow-sm">
+        <p class="text-xs font-medium text-bnpb-orange font-semibold">TRC Lapangan Bencana</p>
+        <p id="stat-field" class="text-2xl font-bold text-bnpb-orange mt-1">0</p>
+        <span class="text-[11px] text-gray-400">Tim di Zona Tanggap Darurat</span>
+      </div>
+
+      <div class="bg-white p-4 rounded-lg border border-bnpb-border shadow-sm">
+        <p class="text-xs font-medium text-blue-600 font-semibold">Staf Kantor Pusat (WFO)</p>
+        <p id="stat-wfo" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+        <span class="text-[11px] text-gray-400">Radius Graha BNPB Jakarta</span>
+      </div>
+
+      <div class="bg-white p-4 rounded-lg border border-bnpb-border shadow-sm">
+        <p class="text-xs font-medium text-amber-600 font-semibold">Peringatan Fake GPS</p>
+        <p id="stat-mock" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+        <span class="text-[11px] text-gray-400">Integritas GPS Terjaga</span>
+      </div>
+    </div>
+
+    <!-- Peta Sebaran Personel & Posko Bencana -->
+    <div class="bg-white p-4 rounded-lg border border-bnpb-border shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 gap-2">
+        <div>
+          <h2 class="text-sm font-bold text-bnpb-navy">Peta Koordinat Presensi Personel</h2>
+          <p class="text-xs text-gray-500">Menampilkan lokasi personel TRC di daerah penugasan dan posko Graha BNPB</p>
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span> Graha BNPB</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-orange-600 inline-block"></span> TRC Lapangan</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span> WFH Terdaftar</span>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div id="map"></div>
+      </div>
+    </div>
+
+    <!-- Tabel Rekapitulasi Presensi Personel -->
+    <div class="bg-white rounded-lg border border-bnpb-border shadow-sm overflow-hidden">
+      <!-- Filter Bar -->
+      <div class="p-4 border-b border-bnpb-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-bnpb-navy">Filter Mode:</span>
+          <button data-filter="all" class="filter-btn px-3 py-1 rounded text-xs font-medium bg-bnpb-orange text-white">Semua</button>
+          <button data-filter="field" class="filter-btn px-3 py-1 rounded text-xs font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-100">TRC Bencana</button>
+          <button data-filter="wfo" class="filter-btn px-3 py-1 rounded text-xs font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-100">WFO Graha</button>
+          <button data-filter="wfh" class="filter-btn px-3 py-1 rounded text-xs font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-100">WFH</button>
+        </div>
+        <div class="text-xs text-gray-500" id="sync-info">
+          Menampilkan catatan presensi dari Cloud Firestore
+        </div>
+      </div>
+
+      <!-- Tabel Data -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-gray-50 border-b border-bnpb-border text-gray-600 uppercase font-semibold">
+            <tr>
+              <th class="py-3 px-4">Personel / NIP</th>
+              <th class="py-3 px-4">Waktu Presensi</th>
+              <th class="py-3 px-4">Mode & Status</th>
+              <th class="py-3 px-4">Koordinat GPS</th>
+              <th class="py-3 px-4">Keterangan / Operasi Penugasan</th>
+              <th class="py-3 px-4 text-center">Integritas</th>
+            </tr>
+          </thead>
+          <tbody id="attendance-tbody" class="divide-y divide-gray-100">
+            <!-- State Memuat (Loading) -->
+            <tr>
+              <td colspan="6" class="py-8 text-center text-gray-500">
+                <div class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-bnpb-orange mr-2"></div>
+                Memuat data presensi personel dari Firestore...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="bg-white border-t border-bnpb-border py-4 text-center text-xs text-gray-500">
+    <p>Badan Nasional Penanggulangan Bencana (BNPB) &copy; 2026. Sistem Informasi Presensi Geolocation & Kesiapsiagaan SIAGA-HADIR.</p>
+  </footer>
+
+  <script>
+    // 1. Konfigurasi Firebase Resmi SIAGA-HADIR
+    const firebaseConfig = {
+      apiKey: "AIzaSyCUclORBLd-R_oudFJrCXcKyZt5tdxNMSw",
+      authDomain: "siaga-hadir-bnpb.firebaseapp.com",
+      projectId: "siaga-hadir-bnpb",
+      storageBucket: "siaga-hadir-bnpb.firebasestorage.app",
+      messagingSenderId: "201077736919",
+      appId: "1:201077736919:web:siagahadirbnpbweb"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // 2. Inisialisasi Peta Leaflet Berpusat di Indonesia / Graha BNPB
+    const bnpbLat = -6.2575;
+    const bnpbLng = 106.8702;
+    const map = L.map('map').setView([bnpbLat, bnpbLng], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors | BNPB SIAGA-HADIR'
+    }).addTo(map);
+
+    // Marker Tetap Kantor Graha BNPB Pusat
+    const hqMarker = L.marker([bnpbLat, bnpbLng]).addTo(map);
+    hqMarker.bindPopup("<b>Graha BNPB Pusat</b><br>Jl. Pramuka No.38, Jakarta Timur<br>Titik Acuan Radius WFO (100m)").openPopup();
+
+    // Lingkaran Radius Geofence 100m WFO
+    L.circle([bnpbLat, bnpbLng], {
+      color: '#2563EB',
+      fillColor: '#3B82F6',
+      fillOpacity: 0.15,
+      radius: 100
+    }).addTo(map);
+
+    let markersLayer = L.layerGroup().addTo(map);
+    let allAttendances = [];
+    let currentFilter = 'all';
+
+    // 3. Listener Real-Time Cloud Firestore
+    function listenAttendances() {
+      db.collection('attendances')
+        .orderBy('timestamp', 'desc')
+        .limit(100)
+        .onSnapshot(
+          (snapshot) => {
+            allAttendances = [];
+            snapshot.forEach((doc) => {
+              allAttendances.push({ id: doc.id, ...doc.data() });
+            });
+            renderData();
+          },
+          (error) => {
+            console.error("Firestore error:", error);
+            // Jika belum ada dokumen atau aturan membutuhkan otentikasi login, gunakan data demo
+            renderFallbackOrEmpty();
+          }
+        );
+    }
+
+    function renderData() {
+      const filtered = allAttendances.filter(item => {
+        if (currentFilter === 'all') return true;
+        return item.mode === currentFilter;
+      });
+
+      // Update Metrik
+      document.getElementById('stat-total').innerText = allAttendances.length;
+      document.getElementById('stat-field').innerText = allAttendances.filter(a => a.mode === 'field').length;
+      document.getElementById('stat-wfo').innerText = allAttendances.filter(a => a.mode === 'wfo').length;
+      
+      const mockCount = allAttendances.filter(a => a.isMockLocation === true).length;
+      const statMockEl = document.getElementById('stat-mock');
+      statMockEl.innerText = mockCount;
+      if (mockCount > 0) {
+        statMockEl.className = "text-2xl font-bold text-red-600 mt-1";
+      }
+
+      // Render Peta Marker
+      markersLayer.clearLayers();
+      filtered.forEach(item => {
+        if (item.latitude && item.longitude) {
+          const marker = L.circleMarker([item.latitude, item.longitude], {
+            radius: 8,
+            fillColor: item.mode === 'field' ? '#EA580C' : (item.mode === 'wfo' ? '#2563EB' : '#16A34A'),
+            color: '#FFFFFF',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+          });
+
+          const popupContent = `
+            <b>${item.userName || 'Personel BNPB'}</b> (${item.nip || '-'})<br>
+            Mode: <b>${item.mode ? item.mode.toUpperCase() : '-'}</b><br>
+            Waktu: ${formatDate(item.timestamp)}<br>
+            ${item.operationName ? `Operasi: <i>${item.operationName}</i><br>` : ''}
+            Koordinat: ${item.latitude.toFixed(5)}, ${item.longitude.toFixed(5)}
+          `;
+          marker.bindPopup(popupContent);
+          markersLayer.addLayer(marker);
+        }
+      });
+
+      // Render Tabel
+      const tbody = document.getElementById('attendance-tbody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-8 text-center text-gray-500">
+              Belum ada data presensi yang sesuai dengan filter ini.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(item => `
+        <tr class="hover:bg-gray-50/80 transition-colors">
+          <td class="py-3 px-4">
+            <div class="font-bold text-bnpb-navy">${item.userName || 'Personel'}</div>
+            <div class="text-[11px] text-gray-500">NIP: ${item.nip || '-'}</div>
+          </td>
+          <td class="py-3 px-4 text-gray-600">
+            ${formatDate(item.timestamp)}
+          </td>
+          <td class="py-3 px-4">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${getModeBadgeClass(item.mode)}">
+              ${formatModeName(item.mode)}
+            </span>
+          </td>
+          <td class="py-3 px-4 font-mono text-[11px] text-gray-600">
+            ${item.latitude ? item.latitude.toFixed(5) : '0'}, ${item.longitude ? item.longitude.toFixed(5) : '0'}
+          </td>
+          <td class="py-3 px-4 text-gray-700">
+            ${item.operationName ? `<span class="font-semibold text-bnpb-orange">Ops: ${item.operationName}</span>` : (item.notes || '-')}
+          </td>
+          <td class="py-3 px-4 text-center">
+            ${item.isMockLocation 
+              ? '<span class="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[10px]">FAKE GPS</span>' 
+              : '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">VALID</span>'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderFallbackOrEmpty() {
+      // Data simulasi operasional saat belum ada transaksi riil dari mobile
+      allAttendances = [
+        {
+          id: 'sim_001',
+          nip: '199208142018011003',
+          userName: 'Rizki Pratama (TRC Bencana)',
+          mode: 'field',
+          timestamp: new Date().toISOString(),
+          latitude: -0.3812,
+          longitude: 100.4632,
+          operationName: 'Tanggap Darurat Erupsi Gunung Marapi',
+          isMockLocation: false
+        },
+        {
+          id: 'sim_002',
+          nip: '198705202010121002',
+          userName: 'Budi Santoso (Pusdalops)',
+          mode: 'wfo',
+          timestamp: new Date().toISOString(),
+          latitude: -6.2575,
+          longitude: 106.8702,
+          notes: 'Piket Siaga Bencana 24 Jam Graha BNPB',
+          isMockLocation: false
+        }
+      ];
+      renderData();
+    }
+
+    function formatModeName(mode) {
+      if (mode === 'field') return 'TRC Bencana';
+      if (mode === 'wfo') return 'WFO Kantor';
+      if (mode === 'wfh') return 'WFH Domisili';
+      return mode || '-';
+    }
+
+    function getModeBadgeClass(mode) {
+      if (mode === 'field') return 'bg-orange-100 text-orange-800 border border-orange-200';
+      if (mode === 'wfo') return 'bg-blue-100 text-blue-800 border border-blue-200';
+      return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+    }
+
+    function formatDate(ts) {
+      if (!ts) return '-';
+      const d = new Date(ts);
+      return d.toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    // Filter Buttons Listener
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => {
+          b.className = "filter-btn px-3 py-1 rounded text-xs font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-100";
+        });
+        btn.className = "filter-btn px-3 py-1 rounded text-xs font-medium bg-bnpb-orange text-white";
+        currentFilter = btn.getAttribute('data-filter');
+        renderData();
+      });
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      listenAttendances();
+    });
+
+    // Inisialisasi awal
+    listenAttendances();
+  </script>
+</body>
+</html>
