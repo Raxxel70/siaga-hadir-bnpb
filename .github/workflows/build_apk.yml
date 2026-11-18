@@ -42,7 +42,7 @@ jobs:
           mkdir -p android/app
           cp /tmp/google-services.json android/app/google-services.json
           
-          # Konfigurasi plugin Google Services & minSdk dengan python
+          # Konfigurasi plugin Google Services, minSdk 21, dan multiDex
           python3 scripts/configure_android.py
 
       - name: Get Dependencies
