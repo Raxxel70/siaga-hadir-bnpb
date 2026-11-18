@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -26,23 +26,24 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android platform files
+      - name: Prepare Android Platform
         run: |
-          cp android/app/google-services.json /tmp/google-services.json || true
+          # Simpan google-services.json resmi
+          cp android/app/google-services.json /tmp/google-services.json 2>/dev/null || true
+          
+          # Bentuk ulang struktur Android platform resmi
+          rm -rf android/
           flutter create . --platforms=android --org com.bnpb
-          # Hapus file widget_test.dart bawaan template flutter create yang mencari counter 0
+          
+          # Hapus file contoh bawaan
           rm -f test/widget_test.dart
+          
+          # Kembalikan google-services.json
           mkdir -p android/app
-          cp /tmp/google-services.json android/app/google-services.json || true
-
-      - name: Add Google Services Plugin to Gradle
-        run: |
-          if ! grep -q "com.google.gms:google-services" android/build.gradle; then
-            sed -i '/dependencies {/a \        classpath "com.google.gms:google-services:4.4.2"' android/build.gradle || true
-          fi
-          if ! grep -q "com.google.gms.google-services" android/app/build.gradle; then
-            echo 'apply plugin: "com.google.gms.google-services"' >> android/app/build.gradle || true
-          fi
+          cp /tmp/google-services.json android/app/google-services.json
+          
+          # Konfigurasi plugin Google Services & minSdk dengan python
+          python3 scripts/configure_android.py
 
       - name: Get Dependencies
         run: flutter pub get
