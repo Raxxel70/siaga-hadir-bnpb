@@ -46,7 +46,7 @@ class AuthRepository {
       } else {
         final queryByNip = await _firestore
             .collection('users')
-            .where('nip', '==', nip)
+            .where('nip', isEqualTo: nip)
             .limit(1)
             .get();
         if (queryByNip.docs.isNotEmpty) {
