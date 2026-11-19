@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -213,6 +215,45 @@ class HistoryScreen extends ConsumerWidget {
   void _showDetailDialog(BuildContext context, AttendanceModel item) {
     final dateStr = DateFormat('dd MMMM yyyy, HH:mm:ss').format(item.timestamp);
 
+    Widget? photoWidget;
+    if (item.photoPath != null && item.photoPath!.isNotEmpty && File(item.photoPath!).existsSync()) {
+      photoWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(item.photoPath!),
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
+      if (item.photoUrl!.startsWith('data:image')) {
+        try {
+          final base64Data = item.photoUrl!.split(',')[1];
+          photoWidget = ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              base64Decode(base64Data),
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          );
+        } catch (_) {}
+      } else {
+        photoWidget = ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            item.photoUrl!,
+            height: 180,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ),
+        );
+      }
+    }
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -222,6 +263,10 @@ class HistoryScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (photoWidget != null) ...[
+                photoWidget,
+                const SizedBox(height: 12),
+              ],
               _detailRow('Pegawai', item.userName),
               _detailRow('NIP', item.nip),
               _detailRow('Waktu Catat', dateStr),

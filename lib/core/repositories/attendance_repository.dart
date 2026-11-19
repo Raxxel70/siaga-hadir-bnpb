@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../database/hive_queue_service.dart';
@@ -58,19 +59,29 @@ class AttendanceRepository {
   Future<AttendanceModel> _uploadToFirebase(AttendanceModel attendance) async {
     String? photoUrl = attendance.photoUrl;
 
-    // Unggah file foto swafoto jika ada berkas lokalnya.
+    // Proses berkas foto swafoto jika tersedia.
     if (attendance.photoPath != null && attendance.photoPath!.isNotEmpty) {
       final file = File(attendance.photoPath!);
       if (await file.exists()) {
         try {
+          // 1. Coba unggah ke Firebase Storage jika bucket aktif.
           final storageRef = _storage.ref().child(
                 'attendances/${attendance.userId}/${attendance.id}_selfie.jpg',
               );
           final uploadTask = await storageRef.putFile(file);
           photoUrl = await uploadTask.ref.getDownloadURL();
         } catch (_) {
-          // Graceful fallback: Jika Firebase Storage belum diaktifkan (memerlukan paket Blaze),
-          // sinkronisasi data teks & koordinat presensi ke Cloud Firestore tetap berjalan sukses.
+          // 2. Solusi Bebas Kartu Kredit: Konversi ke Base64 Data URI berukuran ringan
+          // agar foto swafoto tetap tersimpan langsung di Cloud Firestore (Paket Gratis Spark).
+          try {
+            final bytes = await file.readAsBytes();
+            if (bytes.length <= 500 * 1024) {
+              final base64String = base64Encode(bytes);
+              photoUrl = 'data:image/jpeg;base64,$base64String';
+            }
+          } catch (_) {
+            // Abaikan jika berkas tidak dapat dibaca
+          }
         }
       }
     }

@@ -254,6 +254,7 @@
           });
 
           const popupContent = `
+            ${item.photoUrl ? `<div class="mb-2"><img src="${item.photoUrl}" class="w-full h-28 object-cover rounded border" /></div>` : ''}
             <b>${item.userName || 'Personel BNPB'}</b> (${item.nip || '-'})<br>
             Mode: <b>${item.mode ? item.mode.toUpperCase() : '-'}</b><br>
             Waktu: ${formatDate(item.timestamp)}<br>
@@ -281,8 +282,19 @@
       tbody.innerHTML = filtered.map(item => `
         <tr class="hover:bg-gray-50/80 transition-colors">
           <td class="py-3 px-4">
-            <div class="font-bold text-bnpb-navy">${item.userName || 'Personel'}</div>
-            <div class="text-[11px] text-gray-500">NIP: ${item.nip || '-'}</div>
+            <div class="flex items-center space-x-3">
+              ${item.photoUrl ? `
+                <img src="${item.photoUrl}" alt="Foto" class="w-9 h-9 rounded-full object-cover border border-bnpb-orange/40 shadow-xs cursor-pointer hover:opacity-80" onclick="previewImage('${item.photoUrl}', '${item.userName || 'Personel'}')" />
+              ` : `
+                <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-xs border border-gray-200">
+                  📷
+                </div>
+              `}
+              <div>
+                <div class="font-bold text-bnpb-navy">${item.userName || 'Personel'}</div>
+                <div class="text-[11px] text-gray-500">NIP: ${item.nip || '-'}</div>
+              </div>
+            </div>
           </td>
           <td class="py-3 px-4 text-gray-600">
             ${formatDate(item.timestamp)}
@@ -376,6 +388,31 @@
 
     // Inisialisasi awal
     listenAttendances();
+  </script>
+  <!-- Modal Pratinjau Foto Swafoto -->
+  <div id="photo-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4" onclick="closePhotoModal()">
+    <div class="bg-white rounded-xl max-w-sm w-full p-4 shadow-2xl space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 id="modal-title" class="font-bold text-bnpb-navy text-sm">Foto Swafoto Personel</h3>
+        <button onclick="closePhotoModal()" class="text-gray-400 hover:text-gray-600 text-lg font-bold">&times;</button>
+      </div>
+      <img id="modal-img" src="" class="w-full max-h-80 object-cover rounded-lg border border-gray-200" alt="Swafoto" />
+      <button onclick="closePhotoModal()" class="w-full py-2 bg-bnpb-orange text-white text-xs font-semibold rounded-lg hover:bg-bnpb-dark">
+        Tutup Pratinjau
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function previewImage(src, name) {
+      if (!src) return;
+      document.getElementById('modal-img').src = src;
+      document.getElementById('modal-title').innerText = 'Swafoto: ' + name;
+      document.getElementById('photo-modal').classList.remove('hidden');
+    }
+    function closePhotoModal() {
+      document.getElementById('photo-modal').classList.add('hidden');
+    }
   </script>
 </body>
 </html>

@@ -3,15 +3,15 @@ import 'package:image_picker/image_picker.dart';
 class CameraService {
   final ImagePicker _picker = ImagePicker();
 
-  // Pengambilan foto swafoto langsung dari kamera depan perangkat.
+  // Pengambilan foto swafoto langsung dari kamera depan dengan kompresi optimal untuk Firestore.
   Future<XFile?> captureLiveSelfie() async {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
-        imageQuality: 85,
-        maxWidth: 1280,
-        maxHeight: 1280,
+        imageQuality: 60,
+        maxWidth: 480,
+        maxHeight: 480,
       );
       return photo;
     } catch (_) {
@@ -25,7 +25,9 @@ class CameraService {
       final XFile? document = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.rear,
-        imageQuality: 90,
+        imageQuality: 60,
+        maxWidth: 600,
+        maxHeight: 800,
       );
       return document;
     } catch (_) {
