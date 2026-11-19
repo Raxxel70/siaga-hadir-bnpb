@@ -62,11 +62,16 @@ class AttendanceRepository {
     if (attendance.photoPath != null && attendance.photoPath!.isNotEmpty) {
       final file = File(attendance.photoPath!);
       if (await file.exists()) {
-        final storageRef = _storage.ref().child(
-              'attendances/${attendance.userId}/${attendance.id}_selfie.jpg',
-            );
-        final uploadTask = await storageRef.putFile(file);
-        photoUrl = await uploadTask.ref.getDownloadURL();
+        try {
+          final storageRef = _storage.ref().child(
+                'attendances/${attendance.userId}/${attendance.id}_selfie.jpg',
+              );
+          final uploadTask = await storageRef.putFile(file);
+          photoUrl = await uploadTask.ref.getDownloadURL();
+        } catch (_) {
+          // Graceful fallback: Jika Firebase Storage belum diaktifkan (memerlukan paket Blaze),
+          // sinkronisasi data teks & koordinat presensi ke Cloud Firestore tetap berjalan sukses.
+        }
       }
     }
 
