@@ -54,6 +54,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryTextColor = isDark ? Colors.white : AppColors.slateNavy;
+    final secondaryTextColor = isDark ? const Color(0xFF94A3B8) : AppColors.mutedText;
+    final labelTextColor = isDark ? const Color(0xFFF1F5F9) : AppColors.deepCharcoal;
 
     return Scaffold(
       body: SafeArea(
@@ -80,20 +84,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     AppStrings.appName,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.slateNavy,
+                      color: primaryTextColor,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     AppStrings.appTagline,
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.mutedText,
+                      color: secondaryTextColor,
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -126,12 +130,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
 
                   // Field NIP
-                  const Text(
+                  Text(
                     AppStrings.nipLabel,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.deepCharcoal,
+                      color: labelTextColor,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -152,12 +156,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
 
                   // Field Kata Sandi
-                  const Text(
+                  Text(
                     AppStrings.passwordLabel,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.deepCharcoal,
+                      color: labelTextColor,
                     ),
                   ),
                   const SizedBox(height: 6),

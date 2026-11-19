@@ -7,8 +7,8 @@ import '../models/attendance_model.dart';
 import '../services/network_service.dart';
 
 class AttendanceRepository {
-  final FirebaseFirestore _firestore;
-  final FirebaseStorage _storage;
+  final FirebaseFirestore? _injectedFirestore;
+  final FirebaseStorage? _injectedStorage;
   final HiveQueueService _queueService;
   final NetworkService _networkService;
 
@@ -17,8 +17,8 @@ class AttendanceRepository {
     FirebaseStorage? storage,
     required HiveQueueService queueService,
     required NetworkService networkService,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance,
+  })  : _injectedFirestore = firestore,
+        _injectedStorage = storage,
         _queueService = queueService,
         _networkService = networkService {
     // Sinkronisasi otomatis begitu koneksi internet aktif kembali.
@@ -27,6 +27,22 @@ class AttendanceRepository {
         syncPendingQueue();
       }
     });
+  }
+
+  FirebaseFirestore? get _firestore {
+    try {
+      return _injectedFirestore ?? FirebaseFirestore.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  FirebaseStorage? get _storage {
+    try {
+      return _injectedStorage ?? FirebaseStorage.instance;
+    } catch (_) {
+      return null;
+    }
   }
 
   // Pencatatan presensi dengan prinsip Offline-First.
@@ -65,11 +81,15 @@ class AttendanceRepository {
       if (await file.exists()) {
         try {
           // 1. Coba unggah ke Firebase Storage jika bucket aktif.
-          final storageRef = _storage.ref().child(
-                'attendances/${attendance.userId}/${attendance.id}_selfie.jpg',
-              );
-          final uploadTask = await storageRef.putFile(file);
-          photoUrl = await uploadTask.ref.getDownloadURL();
+          if (_storage != null) {
+            final storageRef = _storage!.ref().child(
+                  'attendances/${attendance.userId}/${attendance.id}_selfie.jpg',
+                );
+            final uploadTask = await storageRef.putFile(file);
+            photoUrl = await uploadTask.ref.getDownloadURL();
+          } else {
+            throw Exception('Storage not available');
+          }
         } catch (_) {
           // 2. Solusi Bebas Kartu Kredit: Konversi ke Base64 Data URI berukuran ringan
           // agar foto swafoto tetap tersimpan langsung di Cloud Firestore (Paket Gratis Spark).
@@ -90,7 +110,10 @@ class AttendanceRepository {
     dataToSave['photoUrl'] = photoUrl;
     dataToSave['syncStatus'] = 'synced';
 
-    await _firestore.collection('attendances').doc(attendance.id).set(dataToSave);
+    final firestore = _firestore;
+    if (firestore != null) {
+      await firestore.collection('attendances').doc(attendance.id).set(dataToSave);
+    }
 
     return attendance.copyWith(
       photoUrl: photoUrl,
@@ -126,8 +149,9 @@ class AttendanceRepository {
 
     try {
       final isOnline = await _networkService.isConnected();
-      if (isOnline) {
-        final snapshot = await _firestore
+      final firestore = _firestore;
+      if (isOnline && firestore != null) {
+        final snapshot = await firestore
             .collection('attendances')
             .where('userId', isEqualTo: userId)
             .orderBy('timestamp', descending: true)
