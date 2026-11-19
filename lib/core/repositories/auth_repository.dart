@@ -38,19 +38,33 @@ class AuthRepository {
         throw Exception('Identitas autentikasi tidak ditemukan.');
       }
 
-      // Ambil profil pegawai dari Cloud Firestore.
-      final doc = await _firestore.collection('users').doc(uid).get();
-      if (!doc.exists) {
+      // Ambil profil pegawai dari Cloud Firestore (pencarian ganda: UID atau NIP).
+      DocumentSnapshot<Map<String, dynamic>>? targetDoc;
+      final docByUid = await _firestore.collection('users').doc(uid).get();
+      if (docByUid.exists) {
+        targetDoc = docByUid;
+      } else {
+        final queryByNip = await _firestore
+            .collection('users')
+            .where('nip', '==', nip)
+            .limit(1)
+            .get();
+        if (queryByNip.docs.isNotEmpty) {
+          targetDoc = queryByNip.docs.first;
+        }
+      }
+
+      if (targetDoc == null || !targetDoc.exists || targetDoc.data() == null) {
         throw Exception('Data kepegawaian NIP $nip belum terdaftar di sistem.');
       }
 
-      final userData = UserModel.fromMap(doc.data()!, documentId: doc.id);
+      final userData = UserModel.fromMap(targetDoc.data()!, documentId: targetDoc.id);
       final currentDeviceId = await _deviceService.getUniqueDeviceId();
 
       // Pemeriksaan Device Binding.
       if (userData.registeredDeviceId.isEmpty) {
         // Ikat perangkat pada login pertama kali.
-        await _firestore.collection('users').doc(uid).update({
+        await _firestore.collection('users').doc(targetDoc.id).update({
           'registeredDeviceId': currentDeviceId,
         });
         _currentUser = userData.copyWith(registeredDeviceId: currentDeviceId);

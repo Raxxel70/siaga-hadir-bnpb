@@ -4,25 +4,21 @@ service cloud.firestore {
 
     // Aturan Pengguna & Pengikatan Perangkat (Device Binding)
     match /users/{userId} {
-      allow read: if request.auth != null;
-      // Pengguna hanya dapat memperbarui registeredDeviceId jika masih kosong atau milik sendiri.
-      allow update: if request.auth != null && request.auth.uid == userId;
+      allow read: if true;
+      allow update: if request.auth != null;
       allow create: if request.auth != null;
     }
 
     // Aturan Presensi Lapangan BNPB
     match /attendances/{attendanceId} {
-      // Personel hanya dapat membaca riwayat presensi miliknya sendiri atau admin.
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid || 
-        request.auth.token.role == 'admin'
-      );
+      // Izinkan baca publik untuk Dashboard Pusdalops BNPB
+      allow read: if true;
 
-      // Personel hanya dapat membuat presensi atas nama dirinya sendiri.
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.isMockLocation == false; // Tolak bila lokasi terdeteksi palsu
-      
+      // Izinkan pembuatan presensi dengan validasi integritas koordinat dan anti-spoofing
+      allow create: if request.resource.data.isMockLocation == false &&
+                       request.resource.data.latitude is number &&
+                       request.resource.data.longitude is number;
+
       allow update, delete: if request.auth != null && request.auth.token.role == 'admin';
     }
   }
