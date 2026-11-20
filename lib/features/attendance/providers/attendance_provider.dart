@@ -105,17 +105,24 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
   }
 
   Future<void> checkLocation(UserModel user) async {
-    state = state.copyWith(isCheckingLocation: true, errorMessage: null);
-    final result = await _locationService.validateAttendanceLocation(
-      mode: state.selectedMode,
-      homeLat: user.homeLatitude,
-      homeLng: user.homeLongitude,
-    );
-    state = state.copyWith(
-      isCheckingLocation: false,
-      locationResult: result,
-      errorMessage: result.errorMessage,
-    );
+    try {
+      state = state.copyWith(isCheckingLocation: true, errorMessage: null);
+      final result = await _locationService.validateAttendanceLocation(
+        mode: state.selectedMode,
+        homeLat: user.homeLatitude,
+        homeLng: user.homeLongitude,
+      );
+      state = state.copyWith(
+        isCheckingLocation: false,
+        locationResult: result,
+        errorMessage: result.errorMessage,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isCheckingLocation: false,
+        errorMessage: 'Gagal membaca sensor lokasi perangkat.',
+      );
+    }
   }
 
   Future<bool> submitAttendance({
@@ -208,12 +215,19 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
   }
 
   Future<void> loadHistory(String userId) async {
-    state = state.copyWith(isLoadingHistory: true);
-    final history = await _repository.getAttendanceHistory(userId);
-    state = state.copyWith(
-      isLoadingHistory: false,
-      historyList: history,
-    );
+    try {
+      state = state.copyWith(isLoadingHistory: true);
+      final history = await _repository.getAttendanceHistory(userId);
+      state = state.copyWith(
+        isLoadingHistory: false,
+        historyList: history,
+      );
+    } catch (_) {
+      state = state.copyWith(
+        isLoadingHistory: false,
+        historyList: [],
+      );
+    }
   }
 }
 

@@ -11,30 +11,29 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Penangkal Layar Hitam (Menampilkan pesan informatif jika terjadi galat runtime)
+  // Penangkal Layar Hitam & Pelindung Tampilan Error
   ErrorWidget.builder = (FlutterErrorDetails details) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Center(
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Center(
+            child: SingleChildScrollView(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.shield_outlined, size: 64, color: Color(0xFFBA3D00)),
+                  const Icon(Icons.shield_outlined, size: 56, color: Color(0xFFBA3D00)),
                   const SizedBox(height: 16),
                   const Text(
                     'SIAGA-HADIR BNPB',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Memuat sistem presensi dan kesiapsiagaan...',
+                  const SizedBox(height: 10),
+                  Text(
+                    'Catatan Sistem: ${details.exceptionAsString()}',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   ),
                 ],
               ),
@@ -45,11 +44,10 @@ void main() async {
     );
   };
 
-  // Inisialisasi penyimpanan lokal Hive untuk resiliensi zona bencana.
+  // Inisialisasi penyimpanan lokal Hive dengan membuka kotak antrean secara eksplisit.
   try {
     await Hive.initFlutter();
-    final queueService = HiveQueueService();
-    await queueService.init();
+    await Hive.openBox(HiveQueueService.queueBoxName);
   } catch (e) {
     debugPrint('Hive init: $e');
   }
@@ -80,7 +78,6 @@ class SiagaHadirApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      // Default ke mode terang resmi BNPB agar teks selalu kontras tinggi di semua jenis layar ponsel
       themeMode: ThemeMode.light,
       home: const LoginScreen(),
     );
